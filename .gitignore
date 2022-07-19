@@ -21,3 +21,6 @@ tmux.1.*
 cmd-parse.c
 fuzz/*-fuzzer
 .dirstamp
+x86_64/
+aarch64/
+*.spec
