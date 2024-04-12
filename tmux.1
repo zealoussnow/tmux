@@ -140,10 +140,9 @@ By default,
 loads the system configuration file from
 .Pa @SYSCONFDIR@/tmux.conf ,
 if present, then looks for a user configuration file at
-.Pa ~/.tmux.conf,
-.Pa $XDG_CONFIG_HOME/tmux/tmux.conf
+.Pa \[ti]/.tmux.conf
 or
-.Pa ~/.config/tmux/tmux.conf .
+.Pa $XDG_CONFIG_HOME/tmux/tmux.conf .
 .Pp
 The configuration file is a set of
 .Nm
@@ -290,7 +289,7 @@ Rename the current session.
 Split the current pane into two, left and right.
 .It &
 Kill the current window.
-.It '
+.It \[aq]
 Prompt for a window index to select.
 .It \&(
 Switch the attached client to the previous session.
@@ -362,7 +361,7 @@ Toggle zoom state of the current pane.
 Swap the current pane with the previous pane.
 .It }
 Swap the current pane with the next pane.
-.It ~
+.It \[ti]
 Show previous messages from
 .Nm ,
 if any.
@@ -408,7 +407,7 @@ the command prompt.
 For example, the same
 .Ic set-option
 command run from the shell prompt, from
-.Pa ~/.tmux.conf
+.Pa \[ti]/.tmux.conf
 and bound to a key may look like:
 .Bd -literal -offset indent
 $ tmux set-option -g status-style bg=cyan
@@ -461,7 +460,7 @@ To execute commands, each client has a
 .Ql command queue .
 A global command queue not attached to any client is used on startup
 for configuration files like
-.Pa ~/.tmux.conf .
+.Pa \[ti]/.tmux.conf .
 Parsed commands added to the queue are executed in order.
 Some commands, like
 .Ic if-shell
@@ -533,7 +532,7 @@ $ tmux neww \\; splitw
 .Pp
 Or:
 .Bd -literal -offset indent
-$ tmux neww ';' splitw
+$ tmux neww \[aq];\[aq] splitw
 .Ed
 .Pp
 Or from the tmux command prompt:
@@ -551,7 +550,7 @@ $ tmux neww\e; splitw
 .Pp
 Or:
 .Bd -literal -offset indent
-$ tmux 'neww;' splitw
+$ tmux \[aq]neww;\[aq] splitw
 .Ed
 .Pp
 As in these examples, when running tmux from the shell extra care must be taken
@@ -563,7 +562,7 @@ should be escaped according to the shell conventions.
 For
 .Xr sh 1
 this typically means quoted (such as
-.Ql neww ';' splitw )
+.Ql neww \[aq];\[aq] splitw )
 or escaped (such as
 .Ql neww \e\e\e\e; splitw ) .
 .It
@@ -573,14 +572,14 @@ a second time for
 .Nm ;
 for example:
 .Bd -literal -offset indent
-$ tmux neww 'foo\e\e;' bar
+$ tmux neww \[aq]foo\e\e;\[aq] bar
 $ tmux neww foo\e\e\e\e; bar
 .Ed
 .It
 Semicolons that are not individual tokens or trailing another token should only
 be escaped once according to shell conventions; for example:
 .Bd -literal -offset indent
-$ tmux neww 'foo-;-bar'
+$ tmux neww \[aq]foo-;-bar\[aq]
 $ tmux neww foo-\e\e;-bar
 .Ed
 .El
@@ -593,8 +592,8 @@ line (the \e and the newline are completely removed).
 This is called line continuation and applies both inside and outside quoted
 strings and in comments, but not inside braces.
 .Pp
-Command arguments may be specified as strings surrounded by single (') quotes,
-double quotes (") or braces ({}).
+Command arguments may be specified as strings surrounded by single (\[aq])
+quotes, double quotes (\[dq]) or braces ({}).
 .\" "
 This is required when the argument contains any special character.
 Single and double quoted strings cannot span multiple lines except with line
@@ -609,7 +608,7 @@ global environment (see the
 .Sx GLOBAL AND SESSION ENVIRONMENT
 section).
 .It
-A leading ~ or ~user is expanded to the home directory of the current or
+A leading \[ti] or \[ti]user is expanded to the home directory of the current or
 specified user.
 .It
 \euXXXX or \euXXXXXXXX is replaced by the Unicode codepoint corresponding to
@@ -641,10 +640,10 @@ These two examples produce an identical command - note that no escaping is
 needed when using {}:
 .Bd -literal -offset indent
 if-shell true {
-    display -p 'brace-dollar-foo: }$foo'
+    display -p \[aq]brace-dollar-foo: }$foo\[aq]
 }
 
-if-shell true "display -p 'brace-dollar-foo: }\e$foo'"
+if-shell true "display -p \[aq]brace-dollar-foo: }\e$foo\[aq]"
 .Ed
 .Pp
 Braces may be enclosed inside braces, for example:
@@ -895,7 +894,7 @@ section)
 or
 .Ql {marked}
 (alternative form
-.Ql ~ )
+.Ql \[ti] )
 to specify the marked pane (see
 .Ic select-pane
 .Fl m ) .
@@ -935,12 +934,12 @@ arguments are
 commands.
 This may be a single argument passed to the shell, for example:
 .Bd -literal -offset indent
-new-window 'vi ~/.tmux.conf'
+new-window \[aq]vi \[ti]/.tmux.conf\[aq]
 .Ed
 .Pp
 Will run:
 .Bd -literal -offset indent
-/bin/sh -c 'vi ~/.tmux.conf'
+/bin/sh -c \[aq]vi \[ti]/.tmux.conf\[aq]
 .Ed
 .Pp
 Additionally, the
@@ -957,7 +956,7 @@ to be given as multiple arguments and executed directly (without
 This can avoid issues with shell quoting.
 For example:
 .Bd -literal -offset indent
-$ tmux new-window vi ~/.tmux.conf
+$ tmux new-window vi \[ti]/.tmux.conf
 .Ed
 .Pp
 Will run
@@ -992,7 +991,7 @@ set-option -wt:0 monitor-activity on
 
 new-window ; split-window -d
 
-bind-key R source-file ~/.tmux.conf \e; \e
+bind-key R source-file \[ti]/.tmux.conf \e; \e
 	display-message "source-file done"
 .Ed
 .Pp
@@ -1003,7 +1002,7 @@ $ tmux kill-window -t :1
 
 $ tmux new-window \e; split-window -d
 
-$ tmux new-session -d 'vi ~/.tmux.conf' \e; split-window -d \e; attach
+$ tmux new-session -d \[aq]vi \[ti]/.tmux.conf\[aq] \e; split-window -d \e; attach
 .Ed
 .Sh CLIENTS AND SESSIONS
 The
@@ -1039,9 +1038,17 @@ The following commands are available to manage clients and sessions:
 .D1 Pq alias: Ic attach
 If run from outside
 .Nm ,
-create a new client in the current terminal and attach it to
+attach to
+.Ar target-session
+in the current terminal.
+.Ar target-session
+must already exist - to create a new session, see the
+.Ic new-session
+command (with
+.Fl A
+to create or attach).
+If used from inside, switch the currently attached session to
 .Ar target-session .
-If used from inside, switch the current client.
 If
 .Fl d
 is specified, any other clients attached to the session are detached.
@@ -1549,6 +1556,7 @@ show debugging information about jobs and terminals.
 .Tg source
 .It Xo Ic source-file
 .Op Fl Fnqv
+.Op Fl t Ar target-pane
 .Ar path ...
 .Xc
 .D1 Pq alias: Ic source
@@ -1583,7 +1591,7 @@ Note that as by default the
 .Nm
 server will exit with no sessions, this is only useful if a session is created
 in
-.Pa ~/.tmux.conf ,
+.Pa \[ti]/.tmux.conf ,
 .Ic exit-empty
 is turned off, or another command is run as part of the same command sequence.
 For example:
@@ -1745,91 +1753,267 @@ Key tables may be viewed with the
 command.
 .Pp
 The following commands are supported in copy mode:
-.Bl -column "CommandXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" "viXXXXXXXXXX" "emacs" -offset indent
-.It Sy "Command" Ta Sy "vi" Ta Sy "emacs"
-.It Li "append-selection" Ta "" Ta ""
-.It Li "append-selection-and-cancel" Ta "A" Ta ""
-.It Li "back-to-indentation" Ta "^" Ta "M-m"
-.It Li "begin-selection" Ta "Space" Ta "C-Space"
-.It Li "bottom-line" Ta "L" Ta ""
-.It Li "cancel" Ta "q" Ta "Escape"
-.It Li "clear-selection" Ta "Escape" Ta "C-g"
-.It Li "copy-end-of-line [<prefix>]" Ta "" Ta ""
-.It Li "copy-end-of-line-and-cancel [<prefix>]" Ta "" Ta ""
-.It Li "copy-pipe-end-of-line [<command>] [<prefix>]" Ta "" Ta ""
-.It Li "copy-pipe-end-of-line-and-cancel [<command>] [<prefix>]" Ta "D" Ta "C-k"
-.It Li "copy-line [<prefix>]" Ta "" Ta ""
-.It Li "copy-line-and-cancel [<prefix>]" Ta "" Ta ""
-.It Li "copy-pipe-line [<command>] [<prefix>]" Ta "" Ta ""
-.It Li "copy-pipe-line-and-cancel [<command>] [<prefix>]" Ta "" Ta ""
-.It Li "copy-pipe [<command>] [<prefix>]" Ta "" Ta ""
-.It Li "copy-pipe-no-clear [<command>] [<prefix>]" Ta "" Ta ""
-.It Li "copy-pipe-and-cancel [<command>] [<prefix>]" Ta "" Ta ""
-.It Li "copy-selection [<prefix>]" Ta "" Ta ""
-.It Li "copy-selection-no-clear [<prefix>]" Ta "" Ta ""
-.It Li "copy-selection-and-cancel [<prefix>]" Ta "Enter" Ta "M-w"
-.It Li "cursor-down" Ta "j" Ta "Down"
-.It Li "cursor-down-and-cancel" Ta "" Ta ""
-.It Li "cursor-left" Ta "h" Ta "Left"
-.It Li "cursor-right" Ta "l" Ta "Right"
-.It Li "cursor-up" Ta "k" Ta "Up"
-.It Li "end-of-line" Ta "$" Ta "C-e"
-.It Li "goto-line <line>" Ta ":" Ta "g"
-.It Li "halfpage-down" Ta "C-d" Ta "M-Down"
-.It Li "halfpage-down-and-cancel" Ta "" Ta ""
-.It Li "halfpage-up" Ta "C-u" Ta "M-Up"
-.It Li "history-bottom" Ta "G" Ta "M->"
-.It Li "history-top" Ta "g" Ta "M-<"
-.It Li "jump-again" Ta ";" Ta ";"
-.It Li "jump-backward <to>" Ta "F" Ta "F"
-.It Li "jump-forward <to>" Ta "f" Ta "f"
-.It Li "jump-reverse" Ta "," Ta ","
-.It Li "jump-to-backward <to>" Ta "T" Ta ""
-.It Li "jump-to-forward <to>" Ta "t" Ta ""
-.It Li "jump-to-mark" Ta "M-x" Ta "M-x"
-.It Li "middle-line" Ta "M" Ta "M-r"
-.It Li "next-matching-bracket" Ta "%" Ta "M-C-f"
-.It Li "next-paragraph" Ta "}" Ta "M-}"
-.It Li "next-space" Ta "W" Ta ""
-.It Li "next-space-end" Ta "E" Ta ""
-.It Li "next-word" Ta "w" Ta ""
-.It Li "next-word-end" Ta "e" Ta "M-f"
-.It Li "other-end" Ta "o" Ta ""
-.It Li "page-down" Ta "C-f" Ta "PageDown"
-.It Li "page-down-and-cancel" Ta "" Ta ""
-.It Li "page-up" Ta "C-b" Ta "PageUp"
-.It Li "pipe [<command>] [<prefix>]" Ta "" Ta ""
-.It Li "pipe-no-clear [<command>] [<prefix>]" Ta "" Ta ""
-.It Li "pipe-and-cancel [<command>] [<prefix>]" Ta "" Ta ""
-.It Li "previous-matching-bracket" Ta "" Ta "M-C-b"
-.It Li "previous-paragraph" Ta "{" Ta "M-{"
-.It Li "previous-space" Ta "B" Ta ""
-.It Li "previous-word" Ta "b" Ta "M-b"
-.It Li "rectangle-on" Ta "" Ta ""
-.It Li "rectangle-off" Ta "" Ta ""
-.It Li "rectangle-toggle" Ta "v" Ta "R"
-.It Li "refresh-from-pane" Ta "r" Ta "r"
-.It Li "scroll-down" Ta "C-e" Ta "C-Down"
-.It Li "scroll-down-and-cancel" Ta "" Ta ""
-.It Li "scroll-up" Ta "C-y" Ta "C-Up"
-.It Li "search-again" Ta "n" Ta "n"
-.It Li "search-backward <for>" Ta "?" Ta ""
-.It Li "search-backward-incremental <for>" Ta "" Ta "C-r"
-.It Li "search-backward-text <for>" Ta "" Ta ""
-.It Li "search-forward <for>" Ta "/" Ta ""
-.It Li "search-forward-incremental <for>" Ta "" Ta "C-s"
-.It Li "search-forward-text <for>" Ta "" Ta ""
-.It Li "scroll-bottom" Ta "" Ta ""
-.It Li "scroll-middle" Ta "z" Ta ""
-.It Li "scroll-top" Ta "" Ta ""
-.It Li "search-reverse" Ta "N" Ta "N"
-.It Li "select-line" Ta "V" Ta ""
-.It Li "select-word" Ta "" Ta ""
-.It Li "set-mark" Ta "X" Ta "X"
-.It Li "start-of-line" Ta "0" Ta "C-a"
-.It Li "stop-selection" Ta "" Ta ""
-.It Li "toggle-position" Ta "P" Ta "P"
-.It Li "top-line" Ta "H" Ta "M-R"
+.Bl -tag -width Ds
+.It Xo
+.Ic append-selection
+.Xc
+Append the selection to the top paste buffer.
+.It Xo
+.Ic append-selection-and-cancel
+(vi: A)
+.Xc
+Append the selection to the top paste buffer and exit copy mode.
+.It Xo
+.Ic back-to-indentation
+(vi: ^)
+(emacs: M-m)
+.Xc
+Move the cursor back to the indentation.
+.It Xo
+.Ic begin-selection
+(vi: Space)
+(emacs: C-Space)
+.Xc
+Begin selection.
+.It Xo
+.Ic bottom-line
+(vi: L)
+.Xc
+Move to the bottom line.
+.It Xo
+.Ic cancel
+(vi: q)
+(emacs: Escape)
+.Xc
+Exit copy mode.
+.It Xo
+.Ic clear-selection
+(vi: Escape)
+(emacs: C-g)
+.Xc
+Clear the current selection.
+.It Xo
+.Ic copy-end-of-line
+.Op Ar prefix
+.Xc
+Copy from the cursor position to the end of the line.
+.Ar prefix
+is used to name the new paste buffer.
+.It Xo
+.Ic copy-end-of-line-and-cancel
+.Op Ar prefix
+.Xc
+Copy from the cursor position and exit copy mode.
+.It Xo
+.Ic copy-line
+.Op Ar prefix
+.Xc
+Copy the entire line.
+.It Xo
+.Ic copy-line-and-cancel
+.Op Ar prefix
+.Xc
+Copy the entire line and exit copy mode.
+.It Xo
+.Ic copy-selection
+.Op Ar prefix
+.Xc
+Copies the current selection.
+.It Xo
+.Ic copy-selection-and-cancel
+.Op Ar prefix
+(vi: Enter)
+(emacs: M-w)
+.Xc
+Copy the current selection and exit copy mode.
+.It Xo
+.Ic cursor-down
+(vi: j)
+(emacs: Down)
+.Xc
+Move the cursor down.
+.It Xo
+.Ic cursor-left
+(vi: h)
+(emacs: Left)
+.Xc
+Move the cursor left.
+.It Xo
+.Ic cursor-right
+(vi: l)
+(emacs: Right)
+.Xc
+Move the cursor right.
+.It Xo
+.Ic cursor-up
+(vi: k)
+(emacs: Up)
+.Xc
+Move the cursor up.
+.It Xo
+.Ic end-of-line
+(vi: $)
+(emacs: C-e)
+.Xc
+Move the cursor to the end of the line.
+.It Xo
+.Ic goto-line
+.Ar line
+(vi: :)
+(emacs: g)
+.Xc
+Move the cursor to a specific line.
+.It Xo
+.Ic history-bottom
+(vi: G)
+(emacs: M->)
+.Xc
+Scroll to the bottom of the history.
+.It Xo
+.Ic history-top
+(vi: g)
+(emacs: M-<)
+.Xc
+Scroll to the top of the history.
+.It Xo
+.Ic jump-again
+(vi: ;)
+(emacs: ;)
+.Xc
+Repeat the last jump.
+.It Xo
+.Ic jump-backward
+.Ar to
+(vi: F)
+(emacs: F)
+.Xc
+Jump backwards to the specified text.
+.It Xo
+.Ic jump-forward
+.Ar to
+(vi: f)
+(emacs: f)
+.Xc
+Jump forward to the specified text.
+.It Xo
+.Ic jump-to-mark
+(vi: M-x)
+(emacs: M-x)
+.Xc
+Jump to the last mark.
+.It Xo
+.Ic middle-line
+(vi: M)
+(emacs: M-r)
+.Xc
+Move to the middle line.
+.It Xo
+.Ic next-matching-bracket
+(vi: %)
+(emacs: M-C-f)
+.Xc
+Move to the next matching bracket.
+.It Xo
+.Ic next-paragraph
+(vi: })
+(emacs: M-})
+.Xc
+Move to the next paragraph.
+.It Xo
+.Ic next-prompt
+.Op Fl o
+.Xc
+Move to the next prompt.
+.It Xo
+.Ic next-word
+(vi: w)
+.Xc
+Move to the next word.
+.It Xo
+.Ic page-down
+(vi: C-f)
+(emacs: PageDown)
+.Xc
+Scroll down by one page.
+.It Xo
+.Ic page-up
+(vi: C-b)
+(emacs: PageUp)
+.Xc
+Scroll up by one page.
+.It Xo
+.Ic previous-matching-bracket
+(emacs: M-C-b)
+.Xc
+Move to the previous matching bracket.
+.It Xo
+.Ic previous-paragraph
+(vi: {)
+(emacs: M-{)
+.Xc
+Move to the previous paragraph.
+.It Xo
+.Ic previous-prompt
+.Op Fl o
+.Xc
+Move to the previous prompt.
+.It Xo
+.Ic previous-word
+(vi: b)
+(emacs: M-b)
+.Xc
+Move to the previous word.
+.It Xo
+.Ic rectangle-toggle
+(vi: v)
+(emacs: R)
+.Xc
+Toggle rectangle selection mode.
+.It Xo
+.Ic refresh-from-pane
+(vi: r)
+(emacs: r)
+.Xc
+Refresh the content from the pane.
+.It Xo
+.Ic search-again
+(vi: n)
+(emacs: n)
+.Xc
+Repeat the last search.
+.It Xo
+.Ic search-backward
+.Ar text
+(vi: ?)
+.Xc
+Search backwards for the specified text.
+.It Xo
+.Ic search-forward
+.Ar text
+(vi: /)
+.Xc
+Search forward for the specified text.
+.It Xo
+.Ic select-line
+(vi: V)
+.Xc
+Select the current line.
+.It Xo
+.Ic select-word
+.Xc
+Select the current word.
+.It Xo
+.Ic start-of-line
+(vi: 0)
+(emacs: C-a)
+.Xc
+Move the cursor to the start of the line.
+.It Xo
+.Ic top-line
+(vi: H)
+(emacs: M-R)
+.Xc
+Move to the top line.
 .El
 .Pp
 The search commands come in several varieties:
@@ -1851,6 +2035,19 @@ repeats the last search and
 .Ql search-reverse
 does the same but reverses the direction (forward becomes backward and backward
 becomes forward).
+.Pp
+The
+.Ql next-prompt
+and
+.Ql previous-prompt
+move between shell prompts, but require the shell to emit an escape sequence
+(\e033]133;A\e033\e\e) to tell
+.Nm
+where the prompts are located; if the shell does not do this, these commands
+will do nothing.
+The
+.Fl o
+flag jumps to the beginning of the command output instead of the shell prompt.
 .Pp
 Copy commands may take an optional buffer prefix argument which is used
 to generate the buffer name (the default is
@@ -1984,7 +2181,7 @@ For example:
 $ tmux list-windows
 0: ksh [159x48]
     layout: bb62,159x48,0,0{79x48,0,0,79x48,80,0}
-$ tmux select-layout 'bb62,159x48,0,0{79x48,0,0,79x48,80,0}'
+$ tmux select-layout \[aq]bb62,159x48,0,0{79x48,0,0,79x48,80,0}\[aq]
 .Ed
 .Pp
 .Nm
@@ -2124,7 +2321,7 @@ is replaced by the client name in
 and the result executed as a command.
 If
 .Ar template
-is not given, "detach-client -t '%%'" is used.
+is not given, "detach-client -t \[aq]%%\[aq]" is used.
 .Pp
 .Fl O
 specifies the initial sort field: one of
@@ -2209,7 +2406,7 @@ are replaced by the target in
 and the result executed as a command.
 If
 .Ar template
-is not given, "switch-client -t '%%'" is used.
+is not given, "switch-client -t \[aq]%%\[aq]" is used.
 .Pp
 .Fl O
 specifies the initial sort field: one of
@@ -2321,7 +2518,7 @@ to be executed as a command with
 substituted by the pane ID.
 The default
 .Ar template
-is "select-pane -t '%%'".
+is "select-pane -t \[aq]%%\[aq]".
 With
 .Fl b ,
 other commands are not blocked from running until the indicator is closed.
@@ -2683,7 +2880,7 @@ The
 option only opens a new pipe if no previous pipe exists, allowing a pipe to
 be toggled with a single key, for example:
 .Bd -literal -offset indent
-bind-key C-p pipe-pane -o 'cat >>~/output.#I-#P'
+bind-key C-p pipe-pane -o \[aq]cat >>\[ti]/output.#I-#P\[aq]
 .Ed
 .Tg prevl
 .It Xo Ic previous-layout
@@ -2987,7 +3184,7 @@ zooms if the window is not zoomed, or keeps it zoomed if already zoomed.
 .Pp
 An empty
 .Ar shell-command
-('') will create a pane with no command running in it.
+(\[aq]\[aq]) will create a pane with no command running in it.
 Output can be sent to such a pane with the
 .Ic display-message
 command.
@@ -3114,11 +3311,11 @@ and
 Note that to bind the
 .Ql \&"
 or
-.Ql '
+.Ql \[aq]
 keys, quotation marks are necessary, for example:
 .Bd -literal -offset indent
-bind-key '"' split-window
-bind-key "'" new-window
+bind-key \[aq]"\[aq] split-window
+bind-key "\[aq]" new-window
 .Ed
 .Pp
 A command bound to the
@@ -3514,7 +3711,7 @@ it is replaced with
 .Ar value .
 For example, after:
 .Pp
-.Dl set -s command-alias[100] zoom='resize-pane -Z'
+.Dl set -s command-alias[100] zoom=\[aq]resize-pane -Z\[aq]
 .Pp
 Using:
 .Pp
@@ -3550,7 +3747,6 @@ Set the time in milliseconds for which
 .Nm
 waits after an escape is input to determine if it is part of a function or meta
 key sequences.
-The default is 500 milliseconds.
 .It Ic editor Ar shell-command
 Set the command used when
 .Nm
@@ -3752,7 +3948,7 @@ and so on.
 .Pp
 For example:
 .Bd -literal -offset indent
-set -s user-keys[0] "\ee[5;30012~"
+set -s user-keys[0] "\ee[5;30012\[ti]"
 bind User0 resize-pane -L 3
 .Ed
 .El
@@ -3836,21 +4032,40 @@ The value is the width and height separated by an
 character.
 The default is 80x24.
 .It Xo Ic destroy-unattached
-.Op Ic on | off
+.Op Ic off | on | keep-last | keep-group
 .Xc
-If enabled and the session is no longer attached to any clients, it is
-destroyed.
+If
+.Ic on ,
+destroy the session after the last client has detached.
+If
+.Ic off
+(the default), leave the session orphaned.
+If
+.Ic keep-last ,
+destroy the session only if it is in a group and has other sessions in that group.
+If
+.Ic keep-group ,
+destroy the session unless it is in a group and is the only session in that group.
 .It Xo Ic detach-on-destroy
-.Op Ic off | on | no-detached
+.Op Ic off | on | no-detached | previous | next
 .Xc
-If on (the default), the client is detached when the session it is attached to
+If
+.Ic on
+(the default), the client is detached when the session it is attached to
 is destroyed.
-If off, the client is switched to the most recently active of the remaining
+If
+.Ic off ,
+the client is switched to the most recently active of the remaining
 sessions.
 If
 .Ic no-detached ,
 the client is detached only if there are no detached sessions; if detached
 sessions exist, the client is switched to the most recently active.
+If
+.Ic previous
+or
+.Ic next ,
+the client is switched to the previous or next session in alphabetical order.
 .It Ic display-panes-active-colour Ar colour
 Set the colour used by the
 .Ic display-panes
@@ -3891,6 +4106,33 @@ The default is to run
 .Xr lock 1
 with
 .Fl np .
+.It Ic menu-style Ar style
+Set the menu style.
+See the
+.Sx STYLES
+section on how to specify
+.Ar style .
+Attributes are ignored.
+.It Ic menu-selected-style Ar style
+Set the selected menu item style.
+See the
+.Sx STYLES
+section on how to specify
+.Ar style .
+Attributes are ignored.
+.It Ic menu-border-style Ar style
+Set the menu border style.
+See the
+.Sx STYLES
+section on how to specify
+.Ar style .
+Attributes are ignored.
+.It Ic menu-border-lines Ar type
+Set the type of characters used for drawing menu borders.
+See
+.Ic popup-border-lines
+for possible values for
+.Ar border-lines .
 .It Ic message-command-style Ar style
 Set status line message command style.
 This is used for the command prompt with
@@ -4358,20 +4600,18 @@ Attributes are ignored.
 .Pp
 .It Ic popup-style Ar style
 Set the popup style.
-For how to specify
-.Ar style ,
-see the
+See the
 .Sx STYLES
-section.
+section on how to specify
+.Ar style .
 Attributes are ignored.
 .Pp
 .It Ic popup-border-style Ar style
 Set the popup border style.
-For how to specify
-.Ar style ,
-see the
+See the
 .Sx STYLES
-section.
+section on how to specify
+.Ar style .
 Attributes are ignored.
 .Pp
 .It Ic popup-border-lines Ar type
@@ -4512,6 +4752,12 @@ they will be allowed even if the pane is invisible.
 Allow programs in the pane to change the window name using a terminal escape
 sequence (\eek...\ee\e\e).
 .Pp
+.It Xo Ic allow-set-title
+.Op Ic on | off
+.Xc
+Allow programs in the pane to change the title using the terminal escape
+sequences (\ee]2;...\ee\e\e or \ee]0;...\ee\e\e).
+.Pp
 .It Xo Ic alternate-screen
 .Op Ic on | off
 .Xc
@@ -4617,8 +4863,8 @@ or
 .Fl H .
 The following two commands are equivalent:
 .Bd -literal -offset indent.
-set-hook -g pane-mode-changed[42] 'set -g status-left-style bg=red'
-set-option -g pane-mode-changed[42] 'set -g status-left-style bg=red'
+set-hook -g pane-mode-changed[42] \[aq]set -g status-left-style bg=red\[aq]
+set-option -g pane-mode-changed[42] \[aq]set -g status-left-style bg=red\[aq]
 .Ed
 .Pp
 Setting a hook without specifying an array index clears the hook and sets the
@@ -5220,6 +5466,8 @@ The following variables are available, where appropriate:
 .It Li "mouse_line" Ta "" Ta "Line under mouse, if any"
 .It Li "mouse_sgr_flag" Ta "" Ta "Pane mouse SGR flag"
 .It Li "mouse_standard_flag" Ta "" Ta "Pane mouse standard flag"
+.It Li "mouse_status_line" Ta "" Ta "Status line on which mouse event took place"
+.It Li "mouse_status_range" Ta "" Ta "Range type or argument of mouse event on status line"
 .It Li "mouse_utf8_flag" Ta "" Ta "Pane mouse UTF-8 flag"
 .It Li "mouse_word" Ta "" Ta "Word under mouse, if any"
 .It Li "mouse_x" Ta "" Ta "Mouse X position, if any"
@@ -5387,6 +5635,8 @@ for the terminal default colour; or a hexadecimal RGB string such as
 .Ql #ffffff .
 .It Ic bg=colour
 Set the background colour.
+.It Ic us=colour
+Set the underscore colour.
 .It Ic none
 Set no attributes (turn off any active attributes).
 .It Xo Ic acs ,
@@ -5456,26 +5706,56 @@ Only one default may be pushed (each
 replaces the previous saved default).
 .It Xo Ic range=left ,
 .Ic range=right ,
+.Ic range=session|X ,
 .Ic range=window|X ,
+.Ic range=pane|X ,
+.Ic range=user|X ,
 .Ic norange
 .Xc
-Mark a range in the
+Mark a range for mouse events in the
 .Ic status-format
 option.
+When a mouse event occurs in the
 .Ic range=left
-and
+or
 .Ic range=right
-are the text used for the
+range, the
 .Ql StatusLeft
 and
 .Ql StatusRight
-mouse keys.
+key bindings are triggered.
+.Pp
+.Ic range=session|X ,
 .Ic range=window|X
-is the range for a window passed to the
+and
+.Ic range=pane|X
+are ranges for a session, window or pane.
+These trigger the
 .Ql Status
-mouse key, where
+mouse key with the target session, window or pane given by the
 .Ql X
-is a window index.
+argument.
+.Ql X
+is a session ID, window index in the current session or a pane ID.
+For these, the
+.Ic mouse_status_range
+format variable will be set to
+.Ql session ,
+.Ql window
+or
+.Ql pane .
+.Pp
+.Ic range=user|X
+is a user-defined range; it triggers the
+.Ql Status
+mouse key.
+The argument
+.Ql X
+will be available in the
+.Ic mouse_status_range
+format variable.
+.Ql X
+must be at most 15 bytes in length.
 .El
 .Pp
 Examples are:
@@ -5523,7 +5803,7 @@ An escape sequence (if the
 .Ic allow-rename
 option is turned on):
 .Bd -literal -offset indent
-$ printf '\e033kWINDOW_NAME\e033\e\e'
+$ printf \[aq]\e033kWINDOW_NAME\e033\e\e\[aq]
 .Ed
 .It
 Automatic renaming, which sets the name to the active command in the window's
@@ -5536,7 +5816,7 @@ option.
 When a pane is first created, its title is the hostname.
 A pane's title can be set via the title setting escape sequence, for example:
 .Bd -literal -offset indent
-$ printf '\e033]2;My Title\e033\e\e'
+$ printf \[aq]\e033]2;My Title\e033\e\e\[aq]
 .Ed
 .Pp
 It can also be modified with the
@@ -5661,7 +5941,7 @@ The flag is one of the following symbols appended to the window name:
 .It Li "-" Ta "Marks the last window (previously selected)."
 .It Li "#" Ta "Window activity is monitored and activity has been detected."
 .It Li "\&!" Ta "Window bells are monitored and a bell has occurred in the window."
-.It Li "~" Ta "The window has been silent for the monitor-silence interval."
+.It Li "\[ti]" Ta "The window has been silent for the monitor-silence interval."
 .It Li "M" Ta "The window contains the marked pane."
 .It Li "Z" Ta "The window's active pane is zoomed."
 .El
@@ -5843,10 +6123,14 @@ the default is
 .Ql y .
 .Tg menu
 .It Xo Ic display-menu
-.Op Fl O
+.Op Fl OM
+.Op Fl b Ar border-lines
 .Op Fl c Ar target-client
+.Op Fl C Ar starting-choice
+.Op Fl H Ar selected-style
+.Op Fl s Ar style
+.Op Fl S Ar border-style
 .Op Fl t Ar target-pane
-.Op Fl S Ar starting-choice
 .Op Fl T Ar title
 .Op Fl x Ar position
 .Op Fl y Ar position
@@ -5873,10 +6157,28 @@ may not be chosen.
 The name may be empty for a separator line, in which case both the key and
 command should be omitted.
 .Pp
+.Fl b
+sets the type of characters used for drawing menu borders.
+See
+.Ic popup-border-lines
+for possible values for
+.Ar border-lines .
+.Pp
+.Fl H
+sets the style for the selected menu item (see
+.Sx STYLES ) .
+.Pp
+.Fl s
+sets the style for the menu and
+.Fl S
+sets the style for the menu border (see
+.Sx STYLES ) .
+.Pp
 .Fl T
 is a format for the menu title (see
 .Sx FORMATS ) .
-.Fl S
+.Pp
+.Fl C
 sets the menu item selected by default, if the menu is not bound to a mouse key
 binding.
 .Pp
@@ -5928,7 +6230,13 @@ changes this behaviour so that the menu does not close when the mouse button is
 released without an item selected the menu is not closed and a mouse button
 must be clicked to choose an item.
 .Pp
-The following keys are also available:
+.Fl M
+tells
+.Nm
+the menu should handle mouse events; by default only menus opened from mouse
+key bindings do so.
+.Pp
+The following keys are available in menus:
 .Bl -column "Key" "Function" -offset indent
 .It Sy "Key" Ta Sy "Function"
 .It Li "Enter" Ta "Choose selected item"
@@ -5991,8 +6299,8 @@ forwards any input read from stdin to the empty pane given by
 .Op Fl d Ar start-directory
 .Op Fl e Ar environment
 .Op Fl h Ar height
-.Op Fl s Ar style
-.Op Fl S Ar border-style
+.Op Fl s Ar border-style
+.Op Fl S Ar style
 .Op Fl t Ar target-pane
 .Op Fl T Ar title
 .Op Fl w Ar width
@@ -6035,7 +6343,7 @@ If omitted, half of the terminal size is used.
 does not surround the popup by a border.
 .Pp
 .Fl b
-sets the type of border line for the popup.
+sets the type of characters used for drawing popup borders.
 When
 .Fl B
 is specified, the
@@ -6049,12 +6357,8 @@ for possible values for
 .Fl s
 sets the style for the popup and
 .Fl S
-sets the style for the popup border.
-For how to specify
-.Ar style ,
-see the
-.Sx STYLES
-section.
+sets the style for the popup border (see
+.Sx STYLES ) .
 .Pp
 .Fl e
 takes the form
@@ -6178,7 +6482,7 @@ is replaced by the buffer name in
 and the result executed as a command.
 If
 .Ar template
-is not given, "paste-buffer -b '%%'" is used.
+is not given, "paste-buffer -p -b \[aq]%%\[aq]" is used.
 .Pp
 .Fl O
 specifies the initial sort field: one of
@@ -6364,6 +6668,7 @@ option.
 .Tg run
 .It Xo Ic run-shell
 .Op Fl bC
+.Op Fl c Ar start-directory
 .Op Fl d Ar delay
 .Op Fl t Ar target-pane
 .Op Ar shell-command
@@ -6390,6 +6695,10 @@ the command is run in the background.
 waits for
 .Ar delay
 seconds before starting the command.
+If
+.Fl c
+is given, the current working directory is set to
+.Ar start-directory .
 If
 .Fl C
 is not given, any output to stdout is displayed in view mode (in the pane
@@ -6472,7 +6781,7 @@ If set, a sequence such as this may be used
 to change the cursor colour from inside
 .Nm :
 .Bd -literal -offset indent
-$ printf '\e033]12;red\e033\e\e'
+$ printf \[aq]\e033]12;red\e033\e\e\[aq]
 .Ed
 .Pp
 The colour is an
@@ -6513,16 +6822,22 @@ Set a styled underscore.
 The single parameter is one of: 0 for no underscore, 1 for normal
 underscore, 2 for double underscore, 3 for curly underscore, 4 for dotted
 underscore and 5 for dashed underscore.
-.It Em \&Setulc , \&ol
+.It Em \&Setulc , \&Setulc1, \&ol
 Set the underscore colour or reset to the default.
-The argument is (red * 65536) + (green * 256) + blue where each is between 0
+.Em Setulc
+is for RGB colours and
+.Em Setulc1
+for ANSI or 256 colours.
+The
+.Em Setulc
+argument is (red * 65536) + (green * 256) + blue where each is between 0
 and 255.
 .It Em \&Ss , Se
 Set or reset the cursor style.
 If set, a sequence such as this may be used
 to change the cursor to an underline:
 .Bd -literal -offset indent
-$ printf '\e033[4 q'
+$ printf \[aq]\e033[4 q\[aq]
 .Ed
 .Pp
 If
@@ -6841,9 +7156,9 @@ options.
 .El
 .Sh FILES
 .Bl -tag -width "@SYSCONFDIR@/tmux.confXXX" -compact
-.It Pa ~/.tmux.conf
+.It Pa \[ti]/.tmux.conf
 .It Pa $XDG_CONFIG_HOME/tmux/tmux.conf
-.It Pa ~/.config/tmux/tmux.conf
+.It Pa \[ti]/.config/tmux/tmux.conf
 Default
 .Nm
 configuration file.
@@ -6909,7 +7224,7 @@ to exit from it.
 Commands to be run when the
 .Nm
 server is started may be placed in the
-.Pa ~/.tmux.conf
+.Pa \[ti]/.tmux.conf
 configuration file.
 Common examples include:
 .Pp
@@ -6936,8 +7251,8 @@ set-option -g lock-after-time 1800
 Creating new key bindings:
 .Bd -literal -offset indent
 bind-key b set-option status
-bind-key / command-prompt "split-window 'exec man %%'"
-bind-key S command-prompt "new-window -n %1 'ssh %1'"
+bind-key / command-prompt "split-window \[aq]exec man %%\[aq]"
+bind-key S command-prompt "new-window -n %1 \[aq]ssh %1\[aq]"
 .Ed
 .Sh SEE ALSO
 .Xr pty 4

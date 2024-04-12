@@ -472,17 +472,26 @@ void
 status_message_set(struct client *c, int delay, int ignore_styles,
     int ignore_keys, const char *fmt, ...)
 {
-	struct timeval	tv;
-	va_list		ap;
+	struct timeval	 tv;
+	va_list		 ap;
+	char		*s;
+
+	va_start(ap, fmt);
+	xvasprintf(&s, fmt, ap);
+	va_end(ap);
+
+	log_debug("%s: %s", __func__, s);
+
+	if (c == NULL) {
+		server_add_message("message: %s", s);
+		free(s);
+		return;
+	}
 
 	status_message_clear(c);
 	status_push_screen(c);
-
-	va_start(ap, fmt);
-	xvasprintf(&c->message_string, fmt, ap);
-	va_end(ap);
-
-	server_add_message("%s message: %s", c->name, c->message_string);
+	c->message_string = s;
+	server_add_message("%s message: %s", c->name, s);
 
 	/*
 	 * With delay -1, the display-time option is used; zero means wait for
@@ -1764,8 +1773,9 @@ status_prompt_complete_list_menu(struct client *c, char **list, u_int size,
 	else
 		offset = 0;
 
-	if (menu_display(menu, MENU_NOMOUSE|MENU_TAB, 0, NULL, offset,
-	    py, c, NULL, status_prompt_menu_callback, spm) != 0) {
+	if (menu_display(menu, MENU_NOMOUSE|MENU_TAB, 0, NULL, offset, py, c,
+	    BOX_LINES_DEFAULT, NULL, NULL, NULL, NULL,
+	    status_prompt_menu_callback, spm) != 0) {
 		menu_free(menu);
 		free(spm);
 		return (0);
@@ -1857,8 +1867,9 @@ status_prompt_complete_window_menu(struct client *c, struct session *s,
 	else
 		offset = 0;
 
-	if (menu_display(menu, MENU_NOMOUSE|MENU_TAB, 0, NULL, offset,
-	    py, c, NULL, status_prompt_menu_callback, spm) != 0) {
+	if (menu_display(menu, MENU_NOMOUSE|MENU_TAB, 0, NULL, offset, py, c,
+	    BOX_LINES_DEFAULT, NULL, NULL, NULL, NULL,
+	    status_prompt_menu_callback, spm) != 0) {
 		menu_free(menu);
 		free(spm);
 		return (NULL);

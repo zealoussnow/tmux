@@ -267,6 +267,7 @@ static const struct tty_term_code_entry tty_term_codes[] = {
 	[TTYC_SETRGBB] = { TTYCODE_STRING, "setrgbb" },
 	[TTYC_SETRGBF] = { TTYCODE_STRING, "setrgbf" },
 	[TTYC_SETULC] = { TTYCODE_STRING, "Setulc" },
+	[TTYC_SETULC1] = { TTYCODE_STRING, "Setulc1" },
 	[TTYC_SE] = { TTYCODE_STRING, "Se" },
 	[TTYC_SXL] =  { TTYCODE_FLAG, "Sxl" },
 	[TTYC_SGR0] = { TTYCODE_STRING, "sgr0" },
@@ -718,7 +719,7 @@ tty_term_read_list(const char *name, int fd, char ***caps, u_int *ncaps,
 			s = tmp;
 			break;
 		case TTYCODE_FLAG:
-			n = tigetflag((char *) ent->name);
+			n = tigetflag((char *)ent->name);
 			if (n == -1)
 				continue;
 			if (n)
@@ -726,6 +727,8 @@ tty_term_read_list(const char *name, int fd, char ***caps, u_int *ncaps,
 			else
 				s = "0";
 			break;
+		default:
+			fatalx("unknown capability type");
 		}
 		*caps = xreallocarray(*caps, (*ncaps) + 1, sizeof **caps);
 		xasprintf(&(*caps)[*ncaps], "%s=%s", ent->name, s);

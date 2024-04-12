@@ -365,11 +365,9 @@ session_detach(struct session *s, struct winlink *wl)
 
 	session_group_synchronize_from(s);
 
-	if (RB_EMPTY(&s->windows)) {
-		session_destroy(s, 1, __func__);
+	if (RB_EMPTY(&s->windows))
 		return (1);
-	}
-	return (0);
+       	return (0);
 }
 
 /* Return if session has window. */
@@ -687,8 +685,10 @@ session_group_synchronize1(struct session *target, struct session *s)
 	TAILQ_INIT(&s->lastw);
 	TAILQ_FOREACH(wl, &old_lastw, sentry) {
 		wl2 = winlink_find_by_index(&s->windows, wl->idx);
-		if (wl2 != NULL)
+		if (wl2 != NULL) {
 			TAILQ_INSERT_TAIL(&s->lastw, wl2, sentry);
+			wl2->flags |= WINLINK_VISITED;
+		}
 	}
 
 	/* Then free the old winlinks list. */
@@ -737,9 +737,12 @@ session_renumber_windows(struct session *s)
 	memcpy(&old_lastw, &s->lastw, sizeof old_lastw);
 	TAILQ_INIT(&s->lastw);
 	TAILQ_FOREACH(wl, &old_lastw, sentry) {
+		wl->flags &= ~WINLINK_VISITED;
 		wl_new = winlink_find_by_window(&s->windows, wl->window);
-		if (wl_new != NULL)
+		if (wl_new != NULL) {
 			TAILQ_INSERT_TAIL(&s->lastw, wl_new, sentry);
+			wl_new->flags |= WINLINK_VISITED;
+		}
 	}
 
 	/* Set the current window. */

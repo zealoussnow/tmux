@@ -1160,7 +1160,7 @@ tty_keys_clipboard(struct tty *tty, const char *buf, size_t len, size_t *size)
 {
 	struct client		*c = tty->client;
 	struct window_pane	*wp;
-	size_t			 end, terminator, needed;
+	size_t			 end, terminator = 0, needed;
 	char			*copy, *out;
 	int			 outlen;
 	u_int			 i;
@@ -1316,13 +1316,19 @@ tty_keys_device_attributes(struct tty *tty, const char *buf, size_t len,
 
 	/* Add terminal features. */
 	switch (p[0]) {
-	case 62: /* VT220 */
-	case 63: /* VT320 */
-	case 64: /* VT420 */
+	case 61: /* level 1 */
+	case 62: /* level 2 */
+	case 63: /* level 3 */
+	case 64: /* level 4 */
+	case 65: /* level 5 */
 		for (i = 1; i < n; i++) {
 			log_debug("%s: DA feature: %d", c->name, p[i]);
 			if (p[i] == 4)
 				tty_add_features(features, "sixel", ",");
+			if (p[i] == 21)
+				tty_add_features(features, "margins", ",");
+			if (p[i] == 28)
+				tty_add_features(features, "rectfill", ",");
 		}
 		break;
 	}
@@ -1388,11 +1394,12 @@ tty_keys_device_attributes2(struct tty *tty, const char *buf, size_t len,
 			break;
 	}
 
-	/* Add terminal features. */
+	/*
+	 * Add terminal features. We add DECSLRM and DECFRA for some
+	 * identification codes here, notably 64 will catch VT520, even though
+	 * we can't use level 5 from DA because of VTE.
+	 */
 	switch (p[0]) {
-	case 41: /* VT420 */
-		tty_add_features(features, "margins,rectfill", ",");
-		break;
 	case 'M': /* mintty */
 		tty_default_features(features, "mintty", 0);
 		break;
@@ -1492,8 +1499,6 @@ tty_keys_colours(struct tty *tty, const char *buf, size_t len, size_t *size)
 	int		 n;
 
 	*size = 0;
-	if ((tty->flags & TTY_HAVEFG) && (tty->flags & TTY_HAVEBG))
-		return (-1);
 
 	/* First four bytes are always \033]1 and 0 or 1 and ;. */
 	if (buf[0] != '\033')
@@ -1539,11 +1544,9 @@ tty_keys_colours(struct tty *tty, const char *buf, size_t len, size_t *size)
 	if (n != -1 && buf[3] == '0') {
 		log_debug("%s: foreground is %s", c->name, colour_tostring(n));
 		tty->fg = n;
-		tty->flags |= TTY_HAVEFG;
 	} else if (n != -1) {
 		log_debug("%s: background is %s", c->name, colour_tostring(n));
 		tty->bg = n;
-		tty->flags |= TTY_HAVEBG;
 	}
 
 	return (0);

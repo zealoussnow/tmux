@@ -113,6 +113,7 @@ spawn_window(struct spawn_context *sc, char **cause)
 		window_pane_resize(sc->wp0, w->sx, w->sy);
 
 		layout_init(w, sc->wp0);
+		w->active = NULL;
 		window_set_active_pane(w, sc->wp0, 0);
 	}
 
@@ -428,8 +429,8 @@ spawn_pane(struct spawn_context *sc, char **cause)
 		_exit(1);
 
 	/* Clean up file descriptors and signals and update the environment. */
-	closefrom(STDERR_FILENO + 1);
 	proc_clear_signals(server_proc, 1);
+	closefrom(STDERR_FILENO + 1);
 	sigprocmask(SIG_SETMASK, &oldset, NULL);
 	log_close();
 	environ_push(child);

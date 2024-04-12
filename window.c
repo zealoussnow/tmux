@@ -246,21 +246,15 @@ winlink_stack_push(struct winlink_stack *stack, struct winlink *wl)
 
 	winlink_stack_remove(stack, wl);
 	TAILQ_INSERT_HEAD(stack, wl, sentry);
+	wl->flags |= WINLINK_VISITED;
 }
 
 void
 winlink_stack_remove(struct winlink_stack *stack, struct winlink *wl)
 {
-	struct winlink	*wl2;
-
-	if (wl == NULL)
-		return;
-
-	TAILQ_FOREACH(wl2, stack, sentry) {
-		if (wl2 == wl) {
-			TAILQ_REMOVE(stack, wl, sentry);
-			return;
-		}
+	if (wl != NULL && (wl->flags & WINLINK_VISITED)) {
+		TAILQ_REMOVE(stack, wl, sentry);
+		wl->flags &= ~WINLINK_VISITED;
 	}
 }
 
@@ -310,6 +304,7 @@ window_create(u_int sx, u_int sy, u_int xpixel, u_int ypixel)
 	w->flags = 0;
 
 	TAILQ_INIT(&w->panes);
+	TAILQ_INIT(&w->last_panes);
 	w->active = NULL;
 
 	w->lastlayout = -1;
@@ -343,6 +338,7 @@ window_destroy(struct window *w)
 {
 	log_debug("window @%u destroyed (%d references)", w->id, w->references);
 
+	window_unzoom(w, 0);
 	RB_REMOVE(windows, &windows, w);
 
 	if (w->layout_root != NULL)
@@ -485,7 +481,7 @@ window_pane_update_focus(struct window_pane *wp)
 	struct client	*c;
 	int		 focused = 0;
 
-	if (wp != NULL) {
+	if (wp != NULL && (~wp->flags & PANE_EXITED)) {
 		if (wp != wp->window->active)
 			focused = 0;
 		else {
@@ -519,18 +515,23 @@ window_pane_update_focus(struct window_pane *wp)
 int
 window_set_active_pane(struct window *w, struct window_pane *wp, int notify)
 {
+	struct window_pane *lastwp;
+
 	log_debug("%s: pane %%%u", __func__, wp->id);
 
 	if (wp == w->active)
 		return (0);
-	w->last = w->active;
+	lastwp = w->active;
+
+	window_pane_stack_remove(&w->last_panes, wp);
+	window_pane_stack_push(&w->last_panes, lastwp);
 
 	w->active = wp;
 	w->active->active_point = next_active_point++;
 	w->active->flags |= PANE_CHANGED;
 
 	if (options_get_number(global_options, "focus-events")) {
-		window_pane_update_focus(w->last);
+		window_pane_update_focus(lastwp);
 		window_pane_update_focus(w->active);
 	}
 
@@ -672,7 +673,7 @@ window_zoom(struct window_pane *wp)
 }
 
 int
-window_unzoom(struct window *w)
+window_unzoom(struct window *w, int notify)
 {
 	struct window_pane	*wp;
 
@@ -689,7 +690,9 @@ window_unzoom(struct window *w)
 		wp->saved_layout_cell = NULL;
 	}
 	layout_fix_panes(w, NULL);
-	notify_window("window-layout-changed", w);
+
+	if (notify)
+		notify_window("window-layout-changed", w);
 
 	return (0);
 }
@@ -703,7 +706,7 @@ window_push_zoom(struct window *w, int always, int flag)
 		w->flags |= WINDOW_WASZOOMED;
 	else
 		w->flags &= ~WINDOW_WASZOOMED;
-	return (window_unzoom(w) == 0);
+	return (window_unzoom(w, 1) == 0);
 }
 
 int
@@ -753,21 +756,21 @@ window_lost_pane(struct window *w, struct window_pane *wp)
 	if (wp == marked_pane.wp)
 		server_clear_marked();
 
+	window_pane_stack_remove(&w->last_panes, wp);
 	if (wp == w->active) {
-		w->active = w->last;
-		w->last = NULL;
+		w->active = TAILQ_FIRST(&w->last_panes);
 		if (w->active == NULL) {
 			w->active = TAILQ_PREV(wp, window_panes, entry);
 			if (w->active == NULL)
 				w->active = TAILQ_NEXT(wp, entry);
 		}
 		if (w->active != NULL) {
+			window_pane_stack_remove(&w->last_panes, w->active);
 			w->active->flags |= PANE_CHANGED;
 			notify_window("window-pane-changed", w);
 			window_update_focus(w);
 		}
-	} else if (wp == w->last)
-		w->last = NULL;
+	}
 }
 
 void
@@ -850,6 +853,11 @@ void
 window_destroy_panes(struct window *w)
 {
 	struct window_pane	*wp;
+
+	while (!TAILQ_EMPTY(&w->last_panes)) {
+		wp = TAILQ_FIRST(&w->last_panes);
+		window_pane_stack_remove(&w->last_panes, wp);
+	}
 
 	while (!TAILQ_EMPTY(&w->panes)) {
 		wp = TAILQ_FIRST(&w->panes);
@@ -1208,6 +1216,12 @@ window_pane_visible(struct window_pane *wp)
 	return (wp == wp->window->active);
 }
 
+int
+window_pane_exited(struct window_pane *wp)
+{
+	return (wp->fd == -1 || (wp->flags & PANE_EXITED));
+}
+
 u_int
 window_pane_search(struct window_pane *wp, const char *term, int regex,
     int ignore)
@@ -1486,6 +1500,25 @@ window_pane_find_right(struct window_pane *wp)
 	best = window_pane_choose_best(list, size);
 	free(list);
 	return (best);
+}
+
+void
+window_pane_stack_push(struct window_panes *stack, struct window_pane *wp)
+{
+	if (wp != NULL) {
+		window_pane_stack_remove(stack, wp);
+		TAILQ_INSERT_HEAD(stack, wp, sentry);
+		wp->flags |= PANE_VISITED;
+	}
+}
+
+void
+window_pane_stack_remove(struct window_panes *stack, struct window_pane *wp)
+{
+	if (wp != NULL && (wp->flags & PANE_VISITED)) {
+		TAILQ_REMOVE(stack, wp, sentry);
+		wp->flags &= ~PANE_VISITED;
+	}
 }
 
 /* Clear alert flags for a winlink */

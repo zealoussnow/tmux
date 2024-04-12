@@ -144,6 +144,7 @@ static void	input_osc_104(struct input_ctx *, const char *);
 static void	input_osc_110(struct input_ctx *, const char *);
 static void	input_osc_111(struct input_ctx *, const char *);
 static void	input_osc_112(struct input_ctx *, const char *);
+static void	input_osc_133(struct input_ctx *, const char *);
 
 /* Transition entry/exit handlers. */
 static void	input_clear(struct input_ctx *);
@@ -168,6 +169,7 @@ static void	input_csi_dispatch_rm(struct input_ctx *);
 static void	input_csi_dispatch_rm_private(struct input_ctx *);
 static void	input_csi_dispatch_sm(struct input_ctx *);
 static void	input_csi_dispatch_sm_private(struct input_ctx *);
+static void	input_csi_dispatch_sm_graphics(struct input_ctx *);
 static void	input_csi_dispatch_winops(struct input_ctx *);
 static void	input_csi_dispatch_sgr_256(struct input_ctx *, int, u_int *);
 static void	input_csi_dispatch_sgr_rgb(struct input_ctx *, int, u_int *);
@@ -202,7 +204,7 @@ enum input_esc_type {
 	INPUT_ESC_SCSG0_ON,
 	INPUT_ESC_SCSG1_OFF,
 	INPUT_ESC_SCSG1_ON,
-	INPUT_ESC_ST,
+	INPUT_ESC_ST
 };
 
 /* Escape command table. */
@@ -258,11 +260,12 @@ enum input_csi_type {
 	INPUT_CSI_SGR,
 	INPUT_CSI_SM,
 	INPUT_CSI_SM_PRIVATE,
+	INPUT_CSI_SM_GRAPHICS,
 	INPUT_CSI_SU,
 	INPUT_CSI_TBC,
 	INPUT_CSI_VPA,
 	INPUT_CSI_WINOPS,
-	INPUT_CSI_XDA,
+	INPUT_CSI_XDA
 };
 
 /* Control (CSI) command table. */
@@ -282,6 +285,7 @@ static const struct input_table_entry input_csi_table[] = {
 	{ 'M', "",  INPUT_CSI_DL },
 	{ 'P', "",  INPUT_CSI_DCH },
 	{ 'S', "",  INPUT_CSI_SU },
+	{ 'S', "?", INPUT_CSI_SM_GRAPHICS },
 	{ 'T', "",  INPUT_CSI_SD },
 	{ 'X', "",  INPUT_CSI_ECH },
 	{ 'Z', "",  INPUT_CSI_CBT },
@@ -305,7 +309,7 @@ static const struct input_table_entry input_csi_table[] = {
 	{ 'r', "",  INPUT_CSI_DECSTBM },
 	{ 's', "",  INPUT_CSI_SCP },
 	{ 't', "",  INPUT_CSI_WINOPS },
-	{ 'u', "",  INPUT_CSI_RCP },
+	{ 'u', "",  INPUT_CSI_RCP }
 };
 
 /* Input transition. */
@@ -1442,7 +1446,11 @@ input_csi_dispatch(struct input_ctx *ictx)
 		case -1:
 			break;
 		case 0:
+#ifdef ENABLE_SIXEL
+			input_reply(ictx, "\033[?1;2;4c");
+#else
 			input_reply(ictx, "\033[?1;2c");
+#endif
 			break;
 		default:
 			log_debug("%s: unknown '%c'", __func__, ictx->ch);
@@ -1593,6 +1601,9 @@ input_csi_dispatch(struct input_ctx *ictx)
 		break;
 	case INPUT_CSI_SM_PRIVATE:
 		input_csi_dispatch_sm_private(ictx);
+		break;
+	case INPUT_CSI_SM_GRAPHICS:
+		input_csi_dispatch_sm_graphics(ictx);
 		break;
 	case INPUT_CSI_SU:
 		n = input_get(ictx, 0, 1, 1);
@@ -1826,6 +1837,26 @@ input_csi_dispatch_sm_private(struct input_ctx *ictx)
 	}
 }
 
+/* Handle CSI graphics SM. */
+static void
+input_csi_dispatch_sm_graphics(__unused struct input_ctx *ictx)
+{
+#ifdef ENABLE_SIXEL
+	int	n, m, o;
+
+	if (ictx->param_list_len > 3)
+		return;
+	n = input_get(ictx, 0, 0, 0);
+	m = input_get(ictx, 1, 0, 0);
+	o = input_get(ictx, 2, 0, 0);
+
+	if (n == 1 && (m == 1 || m == 2 || m == 4))
+		input_reply(ictx, "\033[?%d;0;%uS", n, SIXEL_COLOUR_REGISTERS);
+	else
+		input_reply(ictx, "\033[?%d;3;%dS", n, o);
+#endif
+}
+
 /* Handle CSI window operations. */
 static void
 input_csi_dispatch_winops(struct input_ctx *ictx)
@@ -1833,8 +1864,12 @@ input_csi_dispatch_winops(struct input_ctx *ictx)
 	struct screen_write_ctx	*sctx = &ictx->ctx;
 	struct screen		*s = sctx->s;
 	struct window_pane	*wp = ictx->wp;
+	struct window		*w = NULL;
 	u_int			 x = screen_size_x(s), y = screen_size_y(s);
 	int			 n, m;
+
+	if (wp != NULL)
+		w = wp->window;
 
 	m = 0;
 	while ((n = input_get(ictx, m, 0, -1)) != -1) {
@@ -1846,8 +1881,6 @@ input_csi_dispatch_winops(struct input_ctx *ictx)
 		case 7:
 		case 11:
 		case 13:
-		case 14:
-		case 19:
 		case 20:
 		case 21:
 		case 24:
@@ -1864,6 +1897,30 @@ input_csi_dispatch_winops(struct input_ctx *ictx)
 			m++;
 			if (input_get(ictx, m, 0, -1) == -1)
 				return;
+			break;
+		case 14:
+			if (w == NULL)
+				break;
+			input_reply(ictx, "\033[4;%u;%ut", y * w->ypixel,
+			    x * w->xpixel);
+			break;
+		case 15:
+			if (w == NULL)
+				break;
+			input_reply(ictx, "\033[5;%u;%ut", y * w->ypixel,
+			    x * w->xpixel);
+			break;
+		case 16:
+			if (w == NULL)
+				break;
+			input_reply(ictx, "\033[6;%u;%ut", w->ypixel,
+			    w->xpixel);
+			break;
+		case 18:
+			input_reply(ictx, "\033[8;%u;%ut", y, x);
+			break;
+		case 19:
+			input_reply(ictx, "\033[9;%u;%ut", y, x);
 			break;
 		case 22:
 			m++;
@@ -1887,13 +1944,10 @@ input_csi_dispatch_winops(struct input_ctx *ictx)
 				if (wp == NULL)
 					break;
 				notify_pane("pane-title-changed", wp);
-				server_redraw_window_borders(wp->window);
-				server_status_window(wp->window);
+				server_redraw_window_borders(w);
+				server_status_window(w);
 				break;
 			}
-			break;
-		case 18:
-			input_reply(ictx, "\033[8;%u;%ut", y, x);
 			break;
 		default:
 			log_debug("%s: unknown '%c'", __func__, ictx->ch);
@@ -2065,7 +2119,7 @@ static void
 input_csi_dispatch_sgr(struct input_ctx *ictx)
 {
 	struct grid_cell	*gc = &ictx->cell.cell;
-	u_int			 i;
+	u_int			 i, link;
 	int			 n;
 
 	if (ictx->param_list_len == 0) {
@@ -2097,7 +2151,9 @@ input_csi_dispatch_sgr(struct input_ctx *ictx)
 
 		switch (n) {
 		case 0:
+			link = gc->link;
 			memcpy(gc, &grid_default_cell, sizeof *gc);
+			gc->link = link;
 			break;
 		case 1:
 			gc->attr |= GRID_ATTR_BRIGHT;
@@ -2183,7 +2239,7 @@ input_csi_dispatch_sgr(struct input_ctx *ictx)
 			gc->attr &= ~GRID_ATTR_OVERLINE;
 			break;
 		case 59:
-			gc->us = 0;
+			gc->us = 8;
 			break;
 		case 90:
 		case 91:
@@ -2242,13 +2298,29 @@ input_dcs_dispatch(struct input_ctx *ictx)
 	const char		 prefix[] = "tmux;";
 	const u_int		 prefixlen = (sizeof prefix) - 1;
 	long long		 allow_passthrough = 0;
+#ifdef ENABLE_SIXEL
+	struct window		*w;
+	struct sixel_image	*si;
+#endif
 
 	if (wp == NULL)
 		return (0);
-	if (ictx->flags & INPUT_DISCARD)
+
+	if (ictx->flags & INPUT_DISCARD) {
+		log_debug("%s: %zu bytes (discard)", __func__, len);
 		return (0);
-	allow_passthrough = options_get_number(wp->options,
-	    "allow-passthrough");
+	}
+
+#ifdef ENABLE_SIXEL
+	w = wp->window;
+	if (buf[0] == 'q') {
+		si = sixel_parse(buf, len, w->xpixel, w->ypixel);
+		if (si != NULL)
+			screen_write_sixelimage(sctx, si, ictx->cell.cell.bg);
+	}
+#endif
+
+	allow_passthrough = options_get_number(wp->options, "allow-passthrough");
 	if (!allow_passthrough)
 		return (0);
 	log_debug("%s: \"%s\"", __func__, buf);
@@ -2300,7 +2372,9 @@ input_exit_osc(struct input_ctx *ictx)
 	switch (option) {
 	case 0:
 	case 2:
-		if (screen_set_title(sctx->s, p) && wp != NULL) {
+		if (wp != NULL &&
+		    options_get_number(wp->options, "allow-set-title") &&
+		    screen_set_title(sctx->s, p)) {
 			notify_pane("pane-title-changed", wp);
 			server_redraw_window_borders(wp->window);
 			server_status_window(wp->window);
@@ -2344,6 +2418,9 @@ input_exit_osc(struct input_ctx *ictx)
 		break;
 	case 112:
 		input_osc_112(ictx, p);
+		break;
+	case 133:
+		input_osc_133(ictx, p);
 		break;
 	default:
 		log_debug("%s: unknown '%u'", __func__, option);
@@ -2734,6 +2811,27 @@ input_osc_112(struct input_ctx *ictx, const char *p)
 		screen_set_cursor_colour(ictx->ctx.s, -1);
 }
 
+/* Handle the OSC 133 sequence. */
+static void
+input_osc_133(struct input_ctx *ictx, const char *p)
+{
+	struct grid		*gd = ictx->ctx.s->grid;
+	u_int			 line = ictx->ctx.s->cy + gd->hsize;
+	struct grid_line	*gl;
+
+	if (line > gd->hsize + gd->sy - 1)
+		return;
+	gl = grid_get_line(gd, line);
+
+	switch (*p) {
+	case 'A':
+		gl->flags |= GRID_LINE_START_PROMPT;
+		break;
+	case 'C':
+		gl->flags |= GRID_LINE_START_OUTPUT;
+		break;
+	}
+}
 
 /* Handle the OSC 52 sequence for setting the clipboard. */
 static void
@@ -2840,9 +2938,11 @@ input_reply_clipboard(struct bufferevent *bev, const char *buf, size_t len,
     const char *end)
 {
 	char	*out = NULL;
-	size_t	 outlen = 0;
+	int	 outlen = 0;
 
 	if (buf != NULL && len != 0) {
+		if (len >= ((size_t)INT_MAX * 3 / 4) - 1)
+			return;
 		outlen = 4 * ((len + 2) / 3) + 1;
 		out = xmalloc(outlen);
 		if ((outlen = b64_ntop(buf, len, out, outlen)) == -1) {

@@ -560,9 +560,9 @@ static key_code
 server_client_check_mouse(struct client *c, struct key_event *event)
 {
 	struct mouse_event	*m = &event->m;
-	struct session		*s = c->session;
-	struct winlink		*wl;
-	struct window_pane	*wp;
+	struct session		*s = c->session, *fs;
+	struct winlink		*fwl;
+	struct window_pane	*wp, *fwp;
 	u_int			 x, y, b, sx, sy, px, py;
 	int			 ignore = 0;
 	key_code		 key;
@@ -622,6 +622,8 @@ server_client_check_mouse(struct client *c, struct key_event *event)
 	} else if (MOUSE_RELEASE(m->b)) {
 		type = UP;
 		x = m->x, y = m->y, b = m->lb;
+		if (m->sgr_type == 'm')
+			b = m->sgr_b;
 		log_debug("up at %u,%u", x, y);
 	} else {
 		if (c->flags & CLIENT_DOUBLECLICK) {
@@ -642,7 +644,10 @@ server_client_check_mouse(struct client *c, struct key_event *event)
 				log_debug("triple-click at %u,%u", x, y);
 				goto have_event;
 			}
-		} else {
+		}
+
+		/* DOWN is the only remaining event type. */
+		if (type == NOTYPE) {
 			type = DOWN;
 			x = m->x, y = m->y, b = m->b;
 			log_debug("down at %u,%u", x, y);
@@ -668,6 +673,7 @@ have_event:
 	/* Save the session. */
 	m->s = s->id;
 	m->w = -1;
+	m->wp = -1;
 	m->ignore = ignore;
 
 	/* Is this on the status line? */
@@ -684,18 +690,42 @@ have_event:
 			case STYLE_RANGE_NONE:
 				return (KEYC_UNKNOWN);
 			case STYLE_RANGE_LEFT:
+				log_debug("mouse range: left");
 				where = STATUS_LEFT;
 				break;
 			case STYLE_RANGE_RIGHT:
+				log_debug("mouse range: right");
 				where = STATUS_RIGHT;
 				break;
-			case STYLE_RANGE_WINDOW:
-				wl = winlink_find_by_index(&s->windows,
-				    sr->argument);
-				if (wl == NULL)
+			case STYLE_RANGE_PANE:
+				fwp = window_pane_find_by_id(sr->argument);
+				if (fwp == NULL)
 					return (KEYC_UNKNOWN);
-				m->w = wl->window->id;
+				m->wp = sr->argument;
 
+				log_debug("mouse range: pane %%%u", m->wp);
+				where = STATUS;
+				break;
+			case STYLE_RANGE_WINDOW:
+				fwl = winlink_find_by_index(&s->windows,
+				    sr->argument);
+				if (fwl == NULL)
+					return (KEYC_UNKNOWN);
+				m->w = fwl->window->id;
+
+				log_debug("mouse range: window @%u", m->w);
+				where = STATUS;
+				break;
+			case STYLE_RANGE_SESSION:
+				fs = session_find_by_id(sr->argument);
+				if (fs == NULL)
+					return (KEYC_UNKNOWN);
+				m->s = sr->argument;
+
+				log_debug("mouse range: session $%u", m->s);
+				where = STATUS;
+				break;
+			case STYLE_RANGE_USER:
 				where = STATUS;
 				break;
 			}
@@ -1838,7 +1868,7 @@ server_client_key_callback(struct cmdq_item *item, void *data)
 	struct key_binding		*bd;
 	int				 xtimeout, flags;
 	struct cmd_find_state		 fs;
-	key_code			 key0;
+	key_code			 key0, prefix, prefix2;
 
 	/* Check the client is good to accept input. */
 	if (s == NULL || (c->flags & CLIENT_UNATTACHEDFLAGS))
@@ -1910,9 +1940,11 @@ table_changed:
 	 * The prefix always takes precedence and forces a switch to the prefix
 	 * table, unless we are already there.
 	 */
+	prefix = (key_code)options_get_number(s->options, "prefix");
+	prefix2 = (key_code)options_get_number(s->options, "prefix2");
 	key0 = (key & (KEYC_MASK_KEY|KEYC_MASK_MODIFIERS));
-	if ((key0 == (key_code)options_get_number(s->options, "prefix") ||
-	    key0 == (key_code)options_get_number(s->options, "prefix2")) &&
+	if ((key0 == (prefix & (KEYC_MASK_KEY|KEYC_MASK_MODIFIERS)) ||
+	    key0 == (prefix2 & (KEYC_MASK_KEY|KEYC_MASK_MODIFIERS))) &&
 	    strcmp(table->name, "prefix") != 0) {
 		server_client_set_key_table(c, "prefix");
 		server_status_client(c);
@@ -2741,6 +2773,7 @@ server_client_dispatch(struct imsg *imsg, void *arg)
 			break;
 		server_client_update_latest(c);
 		tty_resize(&c->tty);
+		tty_repeat_requests(&c->tty);
 		recalculate_sizes();
 		if (c->overlay_resize == NULL)
 			server_client_clear_overlay(c);
@@ -2970,14 +3003,14 @@ server_client_dispatch_identify(struct client *c, struct imsg *imsg)
 	case MSG_IDENTIFY_STDIN:
 		if (datalen != 0)
 			fatalx("bad MSG_IDENTIFY_STDIN size");
-		c->fd = imsg->fd;
-		log_debug("client %p IDENTIFY_STDIN %d", c, imsg->fd);
+		c->fd = imsg_get_fd(imsg);
+		log_debug("client %p IDENTIFY_STDIN %d", c, c->fd);
 		break;
 	case MSG_IDENTIFY_STDOUT:
 		if (datalen != 0)
 			fatalx("bad MSG_IDENTIFY_STDOUT size");
-		c->out_fd = imsg->fd;
-		log_debug("client %p IDENTIFY_STDOUT %d", c, imsg->fd);
+		c->out_fd = imsg_get_fd(imsg);
+		log_debug("client %p IDENTIFY_STDOUT %d", c, c->out_fd);
 		break;
 	case MSG_IDENTIFY_ENVIRON:
 		if (datalen == 0 || data[datalen - 1] != '\0')

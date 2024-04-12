@@ -1,5 +1,3 @@
-# Makefile.am
-
 # Obvious program stuff.
 bin_PROGRAMS = tmux
 CLEANFILES = tmux.1.mdoc tmux.1.man cmd-parse.c
@@ -191,6 +189,7 @@ dist_tmux_SOURCES = \
 	tty-keys.c \
 	tty-term.c \
 	tty.c \
+	utf8-combined.c \
 	utf8.c \
 	window-buffer.c \
 	window-client.c \
@@ -216,6 +215,11 @@ endif
 # Add compat file for utf8proc.
 if HAVE_UTF8PROC
 nodist_tmux_SOURCES += compat/utf8proc.c
+endif
+
+# Enable sixel support.
+if ENABLE_SIXEL
+dist_tmux_SOURCES += image.c image-sixel.c
 endif
 
 if NEED_FUZZING

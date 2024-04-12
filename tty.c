@@ -72,6 +72,11 @@ static int	tty_check_overlay(struct tty *, u_int, u_int);
 static void	tty_check_overlay_range(struct tty *, u_int, u_int, u_int,
 		    struct overlay_ranges *);
 
+#ifdef ENABLE_SIXEL
+static void	tty_write_one(void (*)(struct tty *, const struct tty_ctx *),
+		    struct client *, struct tty_ctx *);
+#endif
+
 #define tty_use_margin(tty) \
 	(tty->term->flags & TERM_DECSLRM)
 #define tty_full_width(tty, ctx) \
@@ -82,6 +87,7 @@ static void	tty_check_overlay_range(struct tty *, u_int, u_int, u_int,
 #define TTY_BLOCK_STOP(tty) (1 + ((tty)->sx * (tty)->sy) / 8)
 
 #define TTY_QUERY_TIMEOUT 5
+#define TTY_REQUEST_LIMIT 30
 
 void
 tty_create_log(void)
@@ -369,12 +375,29 @@ tty_send_requests(struct tty *tty)
 			tty_puts(tty, "\033[>c");
 		if (~tty->flags & TTY_HAVEXDA)
 			tty_puts(tty, "\033[>q");
-		if (~tty->flags & TTY_HAVEFG)
-			tty_puts(tty, "\033]10;?\033\\");
-		if (~tty->flags & TTY_HAVEBG)
-			tty_puts(tty, "\033]11;?\033\\");
+		tty_puts(tty, "\033]10;?\033\\");
+		tty_puts(tty, "\033]11;?\033\\");
 	} else
 		tty->flags |= TTY_ALL_REQUEST_FLAGS;
+	tty->last_requests = time (NULL);
+}
+
+void
+tty_repeat_requests(struct tty *tty)
+{
+	time_t	t = time (NULL);
+
+	if (~tty->flags & TTY_STARTED)
+		return;
+
+	if (t - tty->last_requests <= TTY_REQUEST_LIMIT)
+		return;
+	tty->last_requests = t;
+
+	if (tty->term->flags & TERM_VT100LIKE) {
+		tty_puts(tty, "\033]10;?\033\\");
+		tty_puts(tty, "\033]11;?\033\\");
+	}
 }
 
 void
@@ -482,6 +505,12 @@ tty_update_features(struct tty *tty)
 		tty_puts(tty, tty_term_string(tty->term, TTYC_ENFCS));
 	if (tty->term->flags & TERM_VT100LIKE)
 		tty_puts(tty, "\033[?7727h");
+
+	/*
+	 * Features might have changed since the first draw during attach. For
+	 * example, this happens when DA responses are received.
+	 */
+	server_redraw_client(c);
 
 	tty_invalidate(tty);
 }
@@ -1576,6 +1605,58 @@ tty_draw_line(struct tty *tty, struct screen *s, u_int px, u_int py, u_int nx,
 	tty_update_mode(tty, tty->mode, s);
 }
 
+#ifdef ENABLE_SIXEL
+/* Update context for client. */
+static int
+tty_set_client_cb(struct tty_ctx *ttyctx, struct client *c)
+{
+	struct window_pane	*wp = ttyctx->arg;
+
+	if (c->session->curw->window != wp->window)
+		return (0);
+	if (wp->layout_cell == NULL)
+		return (0);
+
+	/* Set the properties relevant to the current client. */
+	ttyctx->bigger = tty_window_offset(&c->tty, &ttyctx->wox, &ttyctx->woy,
+	    &ttyctx->wsx, &ttyctx->wsy);
+
+	ttyctx->yoff = ttyctx->ryoff = wp->yoff;
+	if (status_at_line(c) == 0)
+		ttyctx->yoff += status_line_size(c);
+
+	return (1);
+}
+
+void
+tty_draw_images(struct client *c, struct window_pane *wp, struct screen *s)
+{
+	struct image	*im;
+	struct tty_ctx	 ttyctx;
+
+	TAILQ_FOREACH(im, &s->images, entry) {
+		memset(&ttyctx, 0, sizeof ttyctx);
+
+		/* Set the client independent properties. */
+		ttyctx.ocx = im->px;
+		ttyctx.ocy = im->py;
+
+		ttyctx.orlower = s->rlower;
+		ttyctx.orupper = s->rupper;
+
+		ttyctx.xoff = ttyctx.rxoff = wp->xoff;
+		ttyctx.sx = wp->sx;
+		ttyctx.sy = wp->sy;
+
+		ttyctx.ptr = im;
+		ttyctx.arg = wp;
+		ttyctx.set_client_cb = tty_set_client_cb;
+		ttyctx.allow_invisible_panes = 1;
+		tty_write_one(tty_cmd_sixelimage, c, &ttyctx);
+	}
+}
+#endif
+
 void
 tty_sync_start(struct tty *tty)
 {
@@ -1648,6 +1729,19 @@ tty_write(void (*cmdfn)(struct tty *, const struct tty_ctx *),
 		}
 	}
 }
+
+#ifdef ENABLE_SIXEL
+/* Only write to the incoming tty instead of every client. */
+static void
+tty_write_one(void (*cmdfn)(struct tty *, const struct tty_ctx *),
+    struct client *c, struct tty_ctx *ctx)
+{
+	if (ctx->set_client_cb == NULL)
+		return;
+	if ((ctx->set_client_cb(ctx, c)) == 1)
+		cmdfn(&c->tty, ctx);
+}
+#endif
 
 void
 tty_cmd_insertcharacter(struct tty *tty, const struct tty_ctx *ctx)
@@ -2067,6 +2161,9 @@ tty_cmd_cell(struct tty *tty, const struct tty_ctx *ctx)
 
 	tty_cell(tty, ctx->cell, &ctx->defaults, ctx->palette,
 	    ctx->s->hyperlinks);
+
+	if (ctx->num == 1)
+		tty_invalidate(tty);
 }
 
 void
@@ -2149,6 +2246,58 @@ tty_cmd_rawstring(struct tty *tty, const struct tty_ctx *ctx)
 	tty_add(tty, ctx->ptr, ctx->num);
 	tty_invalidate(tty);
 }
+
+#ifdef ENABLE_SIXEL
+void
+tty_cmd_sixelimage(struct tty *tty, const struct tty_ctx *ctx)
+{
+	struct image		*im = ctx->ptr;
+	struct sixel_image	*si = im->data;
+	struct sixel_image	*new;
+	char			*data;
+	size_t			 size;
+	u_int			 cx = ctx->ocx, cy = ctx->ocy, sx, sy;
+	u_int			 i, j, x, y, rx, ry;
+	int			 fallback = 0;
+
+	if ((~tty->term->flags & TERM_SIXEL) &&
+            !tty_term_has(tty->term, TTYC_SXL))
+		fallback = 1;
+	if (tty->xpixel == 0 || tty->ypixel == 0)
+		fallback = 1;
+
+	sixel_size_in_cells(si, &sx, &sy);
+	log_debug("%s: image is %ux%u", __func__, sx, sy);
+	if (!tty_clamp_area(tty, ctx, cx, cy, sx, sy, &i, &j, &x, &y, &rx, &ry))
+		return;
+	log_debug("%s: clamping to %u,%u-%u,%u", __func__, i, j, rx, ry);
+
+	if (fallback == 1) {
+		data = xstrdup(im->fallback);
+		size = strlen(data);
+	} else {
+		new = sixel_scale(si, tty->xpixel, tty->ypixel, i, j, rx, ry, 0);
+		if (new == NULL)
+			return;
+
+		data = sixel_print(new, si, &size);
+	}
+	if (data != NULL) {
+		log_debug("%s: %zu bytes: %s", __func__, size, data);
+		tty_region_off(tty);
+		tty_margin_off(tty);
+		tty_cursor(tty, x, y);
+
+		tty->flags |= TTY_NOBLOCK;
+		tty_add(tty, data, size);
+		tty_invalidate(tty);
+		free(data);
+	}
+
+	if (fallback == 0)
+		sixel_free(new);
+}
+#endif
 
 void
 tty_cmd_syncstart(struct tty *tty, const struct tty_ctx *ctx)
@@ -2808,9 +2957,13 @@ tty_check_us(__unused struct tty *tty, struct colour_palette *palette,
 			gc->us = c;
 	}
 
-	/* Underscore colour is set as RGB so convert a 256 colour to RGB. */
-	if (gc->us & COLOUR_FLAG_256)
-		gc->us = colour_256toRGB (gc->us);
+	/* Convert underscore colour if only RGB can be supported. */
+	if (!tty_term_has(tty->term, TTYC_SETULC1)) {
+		    if ((c = colour_force_rgb (gc->us)) == -1)
+			    gc->us = 8;
+		    else
+			    gc->us = c;
+	}
 }
 
 static void
@@ -2885,14 +3038,22 @@ tty_colours_us(struct tty *tty, const struct grid_cell *gc)
 	u_char			 r, g, b;
 
 	/* Clear underline colour. */
-	if (gc->us == 0) {
+	if (COLOUR_DEFAULT(gc->us)) {
 		tty_putcode(tty, TTYC_OL);
 		goto save;
 	}
 
-	/* Must be an RGB colour - this should never happen. */
-	if (~gc->us & COLOUR_FLAG_RGB)
+	/*
+	 * If this is not an RGB colour, use Setulc1 if it exists, otherwise
+	 * convert.
+	 */
+	if (~gc->us & COLOUR_FLAG_RGB) {
+		c = gc->us;
+		if ((~c & COLOUR_FLAG_256) && (c >= 90 && c <= 97))
+			c -= 82;
+		tty_putcode_i(tty, TTYC_SETULC1, c & ~COLOUR_FLAG_256);
 		return;
+	}
 
 	/*
 	 * Setulc and setal follows the ncurses(3) one argument "direct colour"

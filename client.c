@@ -245,9 +245,6 @@ client_main(struct event_base *base, int argc, char **argv, uint64_t flags,
 	u_int			 ncaps = 0;
 	struct args_value	*values;
 
-	/* Ignore SIGCHLD now or daemon() in the server will leave a zombie. */
-	signal(SIGCHLD, SIG_IGN);
-
 	/* Set up the initial command. */
 	if (shell_command != NULL) {
 		msg = MSG_SHELL;
@@ -533,11 +530,22 @@ client_signal(int sig)
 {
 	struct sigaction sigact;
 	int		 status;
+	pid_t		 pid;
 
 	log_debug("%s: %s", __func__, strsignal(sig));
-	if (sig == SIGCHLD)
-		waitpid(WAIT_ANY, &status, WNOHANG);
-	else if (!client_attached) {
+	if (sig == SIGCHLD) {
+		for (;;) {
+			pid = waitpid(WAIT_ANY, &status, WNOHANG);
+			if (pid == 0)
+				break;
+			if (pid == -1) {
+				if (errno == ECHILD)
+					break;
+				log_debug("waitpid failed: %s",
+				    strerror(errno));
+			}
+		}
+	} else if (!client_attached) {
 		if (sig == SIGTERM || sig == SIGHUP)
 			proc_exit(client_proc);
 	} else {
